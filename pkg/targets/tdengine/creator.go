@@ -20,7 +20,7 @@ func (d *DbCreator) Init() {
 	async.Init()
 	db, err := commonpool.GetConnection(d.Opts.User, d.Opts.Pass, d.Opts.Host, d.Opts.Port)
 	if err != nil {
-		panic("TDengine can not get connection")
+		panic(fmt.Sprintf("TDengine cannot get connection: %v", err))
 	}
 	d.Db = db
 }

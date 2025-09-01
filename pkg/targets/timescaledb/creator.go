@@ -216,15 +216,87 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 			partitionsOption = fmt.Sprintf("partitioning_column => '%s'::name, number_partitions => %v::smallint", partitionColumn, d.opts.NumberPartitions)
 		}
 
+		// This gives us a future option of testing the impact of
+		// multi-node replication across data nodes
 		if d.opts.ReplicationFactor > 0 {
-			// This gives us a future option of testing the impact of
-			// multi-node replication across data nodes
 			partitionsOption = fmt.Sprintf("partitioning_column => '%s'::name, replication_factor => %v::smallint", partitionColumn, d.opts.ReplicationFactor)
 		}
 
-		MustExec(dbBench,
-			fmt.Sprintf("SELECT %s('%s'::regclass, 'time'::name, %s, chunk_time_interval => %d, create_default_indexes=>FALSE)",
-				creationCommand, tableName, partitionsOption, d.opts.ChunkTime.Nanoseconds()/1000))
+		// ORIGINAL (single attempt) version was:
+		// MustExec(dbBench,
+		//     fmt.Sprintf("SELECT %s('%s'::regclass, 'time'::name, %s, chunk_time_interval => %d, create_default_indexes=>FALSE)",
+		//         creationCommand, tableName, partitionsOption, d.opts.ChunkTime.Nanoseconds()/1000))
+		//
+		// We now add a backwards/forwards compatible fallback sequence for newer TimescaleDB versions
+		// where integer microseconds + replication_factor parameter in create_hypertable may be removed or changed.
+		//
+		// Strategy:
+		//   1. Try the original (old) signature (integer microseconds).
+		//   2. If it fails, try the new style using INTERVAL 'X microseconds'.
+		//   3. If replication_factor > 0 also try create_distributed_hypertable (new API) after old attempt.
+		//
+		// We preserve variable names and structure to minimize diff footprint.
+
+		chunkUS := d.opts.ChunkTime.Nanoseconds() / 1000
+
+		// Collect candidate SQL statements (ordered: old -> new)
+		candidates := make([]string, 0, 3)
+
+		// Old style (what the original code used)
+		oldSQL := fmt.Sprintf(
+			"SELECT %s('%s'::regclass, 'time'::name, %s, chunk_time_interval => %d, create_default_indexes=>FALSE)",
+			creationCommand, tableName, partitionsOption, chunkUS)
+		candidates = append(candidates, oldSQL)
+
+		// New style (INTERVAL) for non-distributed & distributed alike (create_hypertable)
+		// Build a minimally adapted partitions fragment for the new form (remove ::name casts where safe)
+		// We reuse the intent of partitionsOption but must adapt because new versions expect plain identifiers.
+		// Simplistic rewrite: just re-create a parallel option string.
+		var newStyleParts string
+		if d.opts.ReplicationFactor > 0 {
+			// distributed path (new create_distributed_hypertable will be separate)
+			newStyleParts = fmt.Sprintf("partitioning_column => '%s', replication_factor => %d", partitionColumn, d.opts.ReplicationFactor)
+		} else if d.opts.NumberPartitions > 0 {
+			newStyleParts = fmt.Sprintf("partitioning_column => '%s', number_partitions => %d", partitionColumn, d.opts.NumberPartitions)
+		} else {
+			// nothing (explicit replication_factor=>NULL no longer needed)
+			newStyleParts = ""
+		}
+		// Only append comma if we actually have partition options
+		newPartsFragment := ""
+		if newStyleParts != "" {
+			newPartsFragment = ", " + newStyleParts
+		}
+		newSQL := fmt.Sprintf(
+			"SELECT create_hypertable('%s','time'%s, chunk_time_interval => INTERVAL '%d microseconds', create_default_indexes=>FALSE)",
+			tableName, newPartsFragment, chunkUS)
+		candidates = append(candidates, newSQL)
+
+		// If replication factor > 0 add explicit create_distributed_hypertable attempt (new API)
+		if d.opts.ReplicationFactor > 0 {
+			distSQL := fmt.Sprintf(
+				"SELECT create_distributed_hypertable('%s','time', partitioning_column => '%s', replication_factor => %d, chunk_time_interval => INTERVAL '%d microseconds', create_default_indexes=>FALSE)",
+				tableName, partitionColumn, d.opts.ReplicationFactor, chunkUS)
+			candidates = append(candidates, distSQL)
+		}
+
+		var lastErr error
+		for i, stmt := range candidates {
+			if _, err := dbBench.Exec(stmt); err != nil {
+				lastErr = err
+				if i < len(candidates)-1 {
+					continue
+				}
+			} else {
+				lastErr = nil
+				break
+			}
+		}
+		if lastErr != nil {
+			// Mirror MustExec style termination
+			log.Fatalf("failed to create hypertable for table %s (all attempts). last error: %v\nTried:\n%s",
+				tableName, lastErr, strings.Join(candidates, ";\n"))
+		}
 	}
 }
 
