@@ -1,4 +1,5 @@
 # Time Series Benchmark Suite (TSBS)
+
 This repo contains code for benchmarking several time series databases,
 including TimescaleDB, MongoDB, InfluxDB, CrateDB and Cassandra.
 This code is based on a fork of work initially made public by InfluxDB
@@ -36,6 +37,7 @@ database in the TSBS, feel free to open a pull request to add it!
 Currently, TSBS supports two use cases.
 
 ### Dev ops
+
 A 'dev ops' use case, which comes in two forms. The full form is used to
 generate, insert, and measure data from 9 'systems' that could be monitored
 in a real world dev ops scenario (e.g., CPU, memory, disk, etc).
@@ -50,6 +52,7 @@ one host in the dataset and the number of different hosts generated is
 defined by the `scale` flag (see below).
 
 ### Internet of Things (IoT)
+
 The second use case is meant to simulate the data load in an IoT
 environment. This use case simulates data streaming from a set of trucks
 belonging to a fictional trucking company. This use case simulates
@@ -57,35 +60,36 @@ diagnostic data and metrics from each truck, and introduces environmental
 factors such as out-of-order data and batch ingestion (for trucks
 that are offline for a period of time). It also tracks truck metadata
 and uses this to tie metrics and diagnostics together as part of the query
-set.  
+set.
 
 The queries that are generated as part of this use case will cover both real
 time truck status and analytics that will look at the time series data in
-an effort to be more predictive about truck behavior.  The scale factor with
-this use case will be based on the number of trucks tracked.  
+an effort to be more predictive about truck behavior. The scale factor with
+this use case will be based on the number of trucks tracked.
 
 ---
 
 Not all databases implement all use cases. This table below shows which use
 cases are implemented for each database:
 
-|Database|Dev ops|IoT|
-|:---|:---:|:---:|
-|Akumuli|X¹||
-|Cassandra|X||
-|ClickHouse|X||
-|CrateDB|X||
-|InfluxDB|X|X|
-|MongoDB|X|
-|QuestDB|X|X
-|SiriDB|X|
-|TimescaleDB|X|X|
-|Timestream|X||
-|VictoriaMetrics|X²||
-|TDengine|X|X|
+| Database        | Dev ops | IoT |
+|:----------------|:-------:|:---:|
+| Akumuli         |   X¹    |     |
+| Cassandra       |    X    |     |
+| ClickHouse      |    X    |     |
+| CrateDB         |    X    |     |
+| InfluxDB        |    X    |  X  |
+| MongoDB         |    X    |
+| QuestDB         |    X    | X²  
+| SiriDB          |    X    |
+| TimescaleDB     |    X    |  X  |
+| Timestream      |    X    |     |
+| VictoriaMetrics |   X³    |     |
+| TDengine        |    X    |  X  |
 
-¹ Does not support the `groupby-orderby-limit` query
-² Does not support the `groupby-orderby-limit`, `lastpoint`, `high-cpu-1`, `high-cpu-all` queries
+¹ Does not support the groupby-orderby-limit query 
+² Supports ingestion only 
+³ Does not support the groupby-orderby-limit, lastpoint, high-cpu-1, high-cpu-all queries
 
 ## What the TSBS tests
 
@@ -94,7 +98,7 @@ query execution performance. (It currently does not measure
 concurrent insert and query performance, which is a future priority.)
 To accomplish this in a fair way, the data to be inserted and the
 queries to run are pre-generated and native Go clients are used
-wherever possible to connect to each database (e.g., `mgo` for MongoDB, 
+wherever possible to connect to each database (e.g., `mgo` for MongoDB,
 `aws sdk` for Timestream).
 
 Although the data is randomly generated, TSBS data and queries are
@@ -109,14 +113,15 @@ scripts).
 
 **`Notice`**
 
-TDengine uses the go connector to perform data writing and querying in the 
-TSBS test, and the installation process relies on the C client library. 
-Therefore, prior to compiling TSBS, the taos client must be installed to 
-obtain the necessary library files. For instructions on how to install the 
+TDengine uses the go connector to perform data writing and querying in the
+TSBS test, and the installation process relies on the C client library.
+Therefore, prior to compiling TSBS, the taos client must be installed to
+obtain the necessary library files. For instructions on how to install the
 taos client and server, refer to the [TDengine documentation](https://docs.tdengine.com/get-started/package/) .
 
 The easiest way to get and install the Go programs is to use
 `go get` and then `make all` to install all binaries:
+
 ```bash
 # Fetch TSBS and its dependencies
 $ go get github.com/taosdata/tsbs
@@ -139,6 +144,7 @@ benchmarking phases.
 #### Data generation
 
 Variables needed:
+
 1. a use case. E.g., `iot` (choose from `cpu-only`, `devops`, or `iot`)
 1. a PRNG seed for deterministic generation. E.g., `123`
 1. the number of devices / trucks to generate for. E.g., `4000`
@@ -146,13 +152,14 @@ Variables needed:
 1. an end time. E.g., `2016-01-04T00:00:00Z`
 1. how much time should be between each reading per device, in seconds. E.g., `10s`
 1. and which database(s) you want to generate for. E.g., `timescaledb`
- (choose from `cassandra`, `clickhouse`, `cratedb`, `influx`, `mongo`, `questdb`, `siridb`,
-  `timescaledb` or `victoriametrics`)
+   (choose from `cassandra`, `clickhouse`, `cratedb`, `influx`, `mongo`, `questdb`, `siridb`,
+   `timescaledb` or `victoriametrics`)
 
 Given the above steps you can now generate a dataset (or multiple
 datasets, if you chose to generate for multiple databases) that can
 be used to benchmark data loading of the database(s) chosen using
 the `tsbs_generate_data` tool:
+
 ```bash
 $ tsbs_generate_data --use-case="iot" --seed=123 --scale=4000 \
     --timestamp-start="2016-01-01T00:00:00Z" \
@@ -162,6 +169,7 @@ $ tsbs_generate_data --use-case="iot" --seed=123 --scale=4000 \
 
 # Each additional database would be a separate call.
 ```
+
 _Note: We pipe the output to gzip to reduce on-disk space. This also requires
 you to pipe through gunzip when you run your tests._
 
@@ -184,8 +192,10 @@ reproducible way for multiple runs of data generation.
 #### Query generation
 
 Variables needed:
+
 1. the same use case, seed, # of devices, and start time as used in data generation
-1. an end time that is one second after the end time from data generation. E.g., for `2016-01-04T00:00:00Z` use `2016-01-04T00:00:01Z`
+1. an end time that is one second after the end time from data generation. E.g., for `2016-01-04T00:00:00Z` use
+   `2016-01-04T00:00:01Z`
 1. the number of queries to generate. E.g., `1000`
 1. and the type of query you'd like to generate. E.g., `single-groupby-1-1-1` or `last-loc`
 
@@ -197,6 +207,7 @@ generating more than one type of query, we recommend you use the
 helper script.
 
 For generating just one set of queries for a given type:
+
 ```bash
 $ tsbs_generate_queries --use-case="iot" --seed=123 --scale=4000 \
     --timestamp-start="2016-01-01T00:00:00Z" \
@@ -204,10 +215,12 @@ $ tsbs_generate_queries --use-case="iot" --seed=123 --scale=4000 \
     --queries=1000 --query-type="breakdown-frequency" --format="timescaledb" \
     | gzip > /tmp/timescaledb-queries-breakdown-frequency.gz
 ```
+
 _Note: We pipe the output to gzip to reduce on-disk space. This also requires
 you to pipe through gunzip when you run your tests._
 
 For generating sets of queries for multiple types:
+
 ```bash
 $ FORMATS="timescaledb" SCALE=4000 SEED=123 \
     TS_START="2016-01-01T00:00:00Z" \
@@ -222,28 +235,33 @@ A full list of query types can be found in
 ### Benchmarking insert/write performance
 
 TSBS has two ways to benchmark insert/write performance:
+
 * On the fly simulation and load with `tsbs_load`
 * Pre-generate data to a file and load it either with `tsbs_load` or the
-db specific executables `tsbs_load_*`
+  db specific executables `tsbs_load_*`
 
 #### Using the unified `tsbs_load` executable
 
 The `tsbs_load` executable can load data in any of the supported databases.
-It can use a pregenerated data file as input, or simulate the data on the 
-fly. 
+It can use a pregenerated data file as input, or simulate the data on the
+fly.
 
 You first start by generating a config yaml file populated with the default
 values for each property with:
+
 ```shell script
 $ tsbs_load config --target=<db-name> --data-source=[FILE|SIMULATOR]
 ```
+
 for example, to generate an example for TimescaleDB, loading the data from file
+
 ```shell script
 $ tsbs_load config --target=timescaledb --data-source=FILE
 Wrote example config to: ./config.yaml
 ```
 
 You can then run tsbs_load with the generated config file with:
+
 ```shell script
 $ tsbs_load load timescaledb --config=./config.yaml
 ```
@@ -280,6 +298,7 @@ For simpler testing, especially locally, we also supply
 to a reasonable default for some of the databases.
 So for loading into TimescaleDB, ensure that TimescaleDB is running and
 then use:
+
 ```bash
 # Will insert using 2 clients, batch sizes of 10k, from a file
 # named `timescaledb-data.gz` in directory `/tmp`
@@ -293,6 +312,7 @@ want that to happen, supply a different `DATABASE_NAME` to the above
 command.
 
 Example for writing to remote host using `load_timescaledb.sh`:
+
 ```bash
 # Will insert using 2 clients, batch sizes of 10k, from a file
 # named `timescaledb-data.gz` in directory `/tmp`
@@ -305,6 +325,7 @@ DATABASE_USER=user DATABASE \
 
 By default, statistics about the load performance are printed every 10s,
 and when the full dataset is loaded the looks like this:
+
 ```text
 time,per. metric/s,metric total,overall metric/s,per. row/s,row total,overall row/s
 # ...
@@ -317,7 +338,9 @@ loaded 1036800000 metrics in 936.525765sec with 8 workers (mean rate 1107070.449
 loaded 103680000 rows in 936.525765sec with 8 workers (mean rate 110707.044978/sec)
 ```
 
-All but the last two lines contain the data in CSV format, with column names in the header. Those column names correspond to:
+All but the last two lines contain the data in CSV format, with column names in the header. Those column names
+correspond to:
+
 * timestamp,
 * metrics per second in the period,
 * total metrics inserted,
@@ -340,6 +363,7 @@ the data using the previous section and generate the queries as
 described earlier. Once the data is loaded and the queries are generated,
 just use the corresponding `tsbs_run_queries_` binary for the database
 being tested:
+
 ```bash
 $ cat /tmp/queries/timescaledb-cpu-max-all-eight-hosts-queries.gz | \
     gunzip | tsbs_run_queries_timescaledb --workers=8 \
@@ -349,6 +373,7 @@ $ cat /tmp/queries/timescaledb-cpu-max-all-eight-hosts-queries.gz | \
 You can change the value of the `--workers` flag to
 control the level of parallel queries run at the same time. The
 resulting output will look similar to this:
+
 ```text
 run complete after 1000 queries with 8 workers:
 TimescaleDB max cpu all fields, rand    8 hosts, rand 12hr by 1h:
@@ -368,6 +393,7 @@ For easier testing of multiple queries, we provide
 to run multiple query types in a row. The queries it generates should be
 put in a file with one query per line and the path given to the script.
 For example, if you had a file named `queries.txt` that looked like this:
+
 ```text
 last-loc
 avg-load
@@ -376,6 +402,7 @@ long-driving-session
 ```
 
 You could generate a run script named `query_test.sh`:
+
 ```bash
 # Generate run script for TimescaleDB, using queries in `queries.txt`
 # with the generated query files in /tmp/queries for 8 workers
@@ -384,6 +411,7 @@ $ python generate_run_script.py -d timescaledb -o /tmp/queries \
 ```
 
 And the resulting script file would look like:
+
 ```bash
 #!/bin/bash
 # Queries
@@ -406,39 +434,41 @@ the results.
 ## Appendix I: Query types <a name="appendix-i-query-types"></a>
 
 ### Devops / cpu-only
-|Query type|Description|
-|:---|:---|
-|single-groupby-1-1-1| Simple aggregrate (MAX) on one metric for 1 host, every 5 mins for 1 hour
-|single-groupby-1-1-12| Simple aggregrate (MAX) on one metric for 1 host, every 5 mins for 12 hours
-|single-groupby-1-8-1| Simple aggregrate (MAX) on one metric for 8 hosts, every 5 mins for 1 hour
-|single-groupby-5-1-1| Simple aggregrate (MAX) on 5 metrics for 1 host, every 5 mins for 1 hour
-|single-groupby-5-1-12| Simple aggregrate (MAX) on 5 metrics for 1 host, every 5 mins for 12 hours
-|single-groupby-5-8-1| Simple aggregrate (MAX) on 5 metrics for 8 hosts, every 5 mins for 1 hour
-|cpu-max-all-1| Aggregate across all CPU metrics per hour over 1 hour for a single host
-|cpu-max-all-8| Aggregate across all CPU metrics per hour over 1 hour for eight hosts
-|double-groupby-1| Aggregate on across both time and host, giving the average of 1 CPU metric per host per hour for 24 hours
-|double-groupby-5| Aggregate on across both time and host, giving the average of 5 CPU metrics per host per hour for 24 hours
-|double-groupby-all| Aggregate on across both time and host, giving the average of all (10) CPU metrics per host per hour for 24 hours
-|high-cpu-all| All the readings where one metric is above a threshold across all hosts
-|high-cpu-1| All the readings where one metric is above a threshold for a particular host
-|lastpoint| The last reading for each host
-|groupby-orderby-limit| The last 5 aggregate readings (across time) before a randomly chosen endpoint
+
+| Query type            | Description                                                                                                       |
+|:----------------------|:------------------------------------------------------------------------------------------------------------------|
+| single-groupby-1-1-1  | Simple aggregrate (MAX) on one metric for 1 host, every 5 mins for 1 hour                                         
+| single-groupby-1-1-12 | Simple aggregrate (MAX) on one metric for 1 host, every 5 mins for 12 hours                                       
+| single-groupby-1-8-1  | Simple aggregrate (MAX) on one metric for 8 hosts, every 5 mins for 1 hour                                        
+| single-groupby-5-1-1  | Simple aggregrate (MAX) on 5 metrics for 1 host, every 5 mins for 1 hour                                          
+| single-groupby-5-1-12 | Simple aggregrate (MAX) on 5 metrics for 1 host, every 5 mins for 12 hours                                        
+| single-groupby-5-8-1  | Simple aggregrate (MAX) on 5 metrics for 8 hosts, every 5 mins for 1 hour                                         
+| cpu-max-all-1         | Aggregate across all CPU metrics per hour over 1 hour for a single host                                           
+| cpu-max-all-8         | Aggregate across all CPU metrics per hour over 1 hour for eight hosts                                             
+| double-groupby-1      | Aggregate on across both time and host, giving the average of 1 CPU metric per host per hour for 24 hours         
+| double-groupby-5      | Aggregate on across both time and host, giving the average of 5 CPU metrics per host per hour for 24 hours        
+| double-groupby-all    | Aggregate on across both time and host, giving the average of all (10) CPU metrics per host per hour for 24 hours 
+| high-cpu-all          | All the readings where one metric is above a threshold across all hosts                                           
+| high-cpu-1            | All the readings where one metric is above a threshold for a particular host                                      
+| lastpoint             | The last reading for each host                                                                                    
+| groupby-orderby-limit | The last 5 aggregate readings (across time) before a randomly chosen endpoint                                     
 
 ### IoT
-|Query type|Description|
-|:---|:---|
-|last-loc|Fetch real-time (i.e. last) location of each truck
-|low-fuel|Fetch all trucks with low fuel (less than 10%)
-|high-load|Fetch trucks with high current load (over 90% load capacity)
-|stationary-trucks|Fetch all trucks that are stationary (low avg velocity in last 10 mins)
-|long-driving-sessions|Get trucks which haven't rested for at least 20 mins in the last 4 hours
-|long-daily-sessions|Get trucks which drove more than 10 hours in the last 24 hours
-|avg-vs-projected-fuel-consumption|Calculate average vs. projected fuel consumption per fleet
-|avg-daily-driving-duration|Calculate average daily driving duration per driver
-|avg-daily-driving-session|Calculate average daily driving session per driver
-|avg-load|Calculate average load per truck model per fleet
-|daily-activity|Get the number of hours truck has been active (vs. out-of-commission) per day per fleet
-|breakdown-frequency|Calculate breakdown frequency by truck model
+
+| Query type                        | Description                                                                             |
+|:----------------------------------|:----------------------------------------------------------------------------------------|
+| last-loc                          | Fetch real-time (i.e. last) location of each truck                                      
+| low-fuel                          | Fetch all trucks with low fuel (less than 10%)                                          
+| high-load                         | Fetch trucks with high current load (over 90% load capacity)                            
+| stationary-trucks                 | Fetch all trucks that are stationary (low avg velocity in last 10 mins)                 
+| long-driving-sessions             | Get trucks which haven't rested for at least 20 mins in the last 4 hours                
+| long-daily-sessions               | Get trucks which drove more than 10 hours in the last 24 hours                          
+| avg-vs-projected-fuel-consumption | Calculate average vs. projected fuel consumption per fleet                              
+| avg-daily-driving-duration        | Calculate average daily driving duration per driver                                     
+| avg-daily-driving-session         | Calculate average daily driving session per driver                                      
+| avg-load                          | Calculate average load per truck model per fleet                                        
+| daily-activity                    | Get the number of hours truck has been active (vs. out-of-commission) per day per fleet 
+| breakdown-frequency               | Calculate breakdown frequency by truck model                                            
 
 ## Contributing
 

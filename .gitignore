@@ -6,6 +6,12 @@
 *~
 
 scripts/tsdbComp/log/*
+data/
+data_iot/
+results/
+results_iot/
+queries/
+queries_iot/
 
 # High Dynamic Range (HDR) Histogram files
 *.hdr
