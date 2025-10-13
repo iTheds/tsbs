@@ -58,15 +58,49 @@ func init() {
 		log.Fatal("missing 'urls' flag")
 	}
 
-	// Add an index to the hostname column in the cpu table
+	// 为 CPU 表添加索引
 	r, err := execQuery(daemonUrls[0], "show columns from cpu")
 	if err == nil && r.Count != 0 {
 		r, err := execQuery(daemonUrls[0], "ALTER TABLE cpu ALTER COLUMN hostname ADD INDEX")
 		_ = r
-		//	       fmt.Println("error:", err)
-		//	       fmt.Printf("%+v\n", r)
 		if err == nil {
 			fmt.Println("Added index to hostname column of cpu table")
+		}
+	}
+
+	// 为 IoT readings 表添加索引
+	r, err = execQuery(daemonUrls[0], "show columns from readings")
+	if err == nil && r.Count != 0 {
+		// 为 name 列添加索引（用于按卡车名称查询）
+		r, err := execQuery(daemonUrls[0], "ALTER TABLE readings ALTER COLUMN name ADD INDEX")
+		_ = r
+		if err == nil {
+			fmt.Println("Added index to name column of readings table")
+		}
+
+		// 为 fleet 列添加索引（用于按车队查询）
+		r, err = execQuery(daemonUrls[0], "ALTER TABLE readings ALTER COLUMN fleet ADD INDEX")
+		_ = r
+		if err == nil {
+			fmt.Println("Added index to fleet column of readings table")
+		}
+
+		// 为 model 列添加索引（用于按卡车型号查询）
+		r, err = execQuery(daemonUrls[0], "ALTER TABLE readings ALTER COLUMN model ADD INDEX")
+		_ = r
+		if err == nil {
+			fmt.Println("Added index to model column of readings table")
+		}
+	}
+
+	// 为 IoT diagnostics 表添加索引
+	r, err = execQuery(daemonUrls[0], "show columns from diagnostics")
+	if err == nil && r.Count != 0 {
+		// 为 name 列添加索引（用于按卡车名称查询）
+		r, err := execQuery(daemonUrls[0], "ALTER TABLE diagnostics ALTER COLUMN name ADD INDEX")
+		_ = r
+		if err == nil {
+			fmt.Println("Added index to name column of diagnostics table")
 		}
 	}
 

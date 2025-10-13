@@ -69,25 +69,33 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 	// populate a request with data from the Query:
 	req, err := http.NewRequest(string(q.Method), string(w.uri), nil)
 	if err != nil {
-		panic(err)
+		return 0, fmt.Errorf("error creating request: %v", err)
 	}
 
 	// Perform the request while tracking latency:
 	start := time.Now()
 	resp, err := w.client.Do(req)
 	if err != nil {
-		panic(err)
+		return 0, fmt.Errorf("error executing request: %v", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		panic("http request did not return status 200 OK")
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return 0, fmt.Errorf("error reading response body: %v", err)
 	}
 
-	var body []byte
-	body, err = ioutil.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		// 打印错误信息而不是直接panic
+		errMsg := fmt.Sprintf("HTTP request failed with status %d: %s\nRequest: %s\nResponse: %s",
+			resp.StatusCode, resp.Status, string(q.String()), string(body))
 
-	if err != nil {
-		panic(err)
+		// 如果是IoT查询，可能是表格结构问题
+		if strings.Contains(string(q.RawQuery), "readings") || strings.Contains(string(q.RawQuery), "diagnostics") {
+			errMsg += "\n可能是IoT表格结构问题，请检查readings和diagnostics表是否正确创建"
+		}
+
+		return 0, fmt.Errorf(errMsg)
 	}
 
 	lag = float64(time.Since(start).Nanoseconds()) / 1e6 // milliseconds
@@ -123,11 +131,11 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 			full["response"] = v
 			line, err = json.MarshalIndent(full, prefix, "  ")
 			if err != nil {
-				return
+				return lag, err
 			}
 			fmt.Println(string(line) + "\n")
 		}
 	}
 
-	return lag, err
+	return lag, nil
 }

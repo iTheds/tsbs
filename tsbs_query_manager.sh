@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# (与前一版说明相同，省略冗余中文注释，聚焦运行阶段可靠写日志)
-
+# 通用参数
 QUERY_COUNT="${QUERY_COUNT:-1000}"
 WORKERS="${WORKERS:-8}"
 INFLUX_URLS="${INFLUX_URLS:-http://localhost:8086}"
 INFLUX_DB="${INFLUX_DB:-tsbs_devops}"
-QUESTDB_URLS="${QUESTDB_URLS:-http://localhost:9000/exec}"
+QUESTDB_URLS="${QUESTDB_URLS:-http://localhost:9000}"
 PRINT_INTERVAL="${PRINT_INTERVAL:-100}"
 DRY_RUN=0
 IGNORE_ERROR=0
@@ -20,13 +19,15 @@ TYPES_FILE_TIMESCALE=""
 TYPES_FILE_TDENGINE=""
 TS_DB_NAME="${TS_DB_NAME:-${PGDATABASE:-$INFLUX_DB}}"
 
-# TDengine 相关默认连接参数（运行阶段需要，可在外部 override）
+# TDengine 连接参数
 TDENGINE_HOST="${TDENGINE_HOST:-127.0.0.1}"
 TDENGINE_PORT="${TDENGINE_PORT:-6030}"
 TDENGINE_USER="${TDENGINE_USER:-root}"
 TDENGINE_PASS="${TDENGINE_PASS:-taosdata}"
 TDENGINE_DB="${TDENGINE_DB:-$INFLUX_DB}"
 
+# ============== IOT 查询类型默认集 ==============
+# 下列名称是社区常见 iot 场景的 query types，若与你的 tsbs 分支不一致，请据实际修改。
 QUERY_TYPES_INFLUX_DEFAULT=(
 cpu-max-all-1
 cpu-max-all-8

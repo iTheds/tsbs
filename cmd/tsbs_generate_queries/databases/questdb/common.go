@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/taosdata/tsbs/cmd/tsbs_generate_queries/uses/devops"
+	"github.com/taosdata/tsbs/cmd/tsbs_generate_queries/uses/iot"
 	"github.com/taosdata/tsbs/cmd/tsbs_generate_queries/utils"
 	"github.com/taosdata/tsbs/pkg/query"
 )
@@ -47,4 +48,20 @@ func (g *BaseGenerator) NewDevops(start, end time.Time, scale int) (utils.QueryG
 	}
 
 	return devops, nil
+}
+
+// NewIoT creates a new IoT use case query generator.
+func (g *BaseGenerator) NewIoT(start, end time.Time, scale int) (utils.QueryGenerator, error) {
+	core, err := iot.NewCore(start, end, scale)
+
+	if err != nil {
+		return nil, err
+	}
+
+	iotGen := &IoT{
+		BaseGenerator: g,
+		Core:          core,
+	}
+
+	return iotGen, nil
 }

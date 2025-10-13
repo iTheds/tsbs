@@ -24,18 +24,41 @@ func (d *dbCreator) DBExists(dbName string) bool {
 	if err != nil {
 		panic(fmt.Errorf("fatal error, failed to query questdb: %s", err))
 	}
+
+	// 检查是否已存在相关表格，但不终止程序
+	tableExists := false
 	for i, v := range r.Dataset {
-		if i >= 0 && v[0] == "cpu" {
-			panic(fmt.Errorf("fatal error, cpu table already exists"))
+		if i >= 0 {
+			tableName := v[0].(string)
+			if tableName == "cpu" || tableName == "readings" || tableName == "diagnostics" {
+				fmt.Printf("Table %s already exists\n", tableName)
+				tableExists = true
+			}
 		}
 	}
-	// Create minimal table with o3 params
-	//        r, err = execQuery(questdbRESTEndPoint, "CREATE TABLE cpu (hostname SYMBOL, region SYMBOL, datacenter SYMBOL, rack SYMBOL, os SYMBOL, arch SYMBOL, team SYMBOL, service SYMBOL, service_version SYMBOL, service_environment SYMBOL, usage_user LONG, usage_system LONG, usage_idle LONG, usage_nice LONG, usage_iowait LONG, usage_irq LONG, usage_softirq LONG, usage_steal LONG, usage_guest LONG, usage_guest_nice LONG, timestamp TIMESTAMP) timestamp(timestamp) PARTITION BY DAY WITH o3MaxUncommittedRows=500000, o3CommitHysteresis=300s")
-	//        if err != nil {
-	//          panic(fmt.Errorf("fatal error, failed to create cpu table: %s", err))
-	//        }
 
-	return false
+	//if !tableExists {
+	//	// 创建必要的表格结构
+	//	// 创建 CPU 表
+	//	_, err = execQuery(questdbRESTEndPoint, "CREATE TABLE IF NOT EXISTS cpu (hostname SYMBOL, region SYMBOL, datacenter SYMBOL, rack SYMBOL, os SYMBOL, arch SYMBOL, team SYMBOL, service SYMBOL, service_version SYMBOL, service_environment SYMBOL, usage_user LONG, usage_system LONG, usage_idle LONG, usage_nice LONG, usage_iowait LONG, usage_irq LONG, usage_softirq LONG, usage_steal LONG, usage_guest LONG, usage_guest_nice LONG, timestamp TIMESTAMP) timestamp(timestamp) PARTITION BY DAY")
+	//	if err != nil {
+	//		panic(fmt.Errorf("fatal error, failed to create cpu table: %s", err))
+	//	}
+	//
+	//	// 创建 IoT readings 表
+	//	_, err = execQuery(questdbRESTEndPoint, "CREATE TABLE IF NOT EXISTS readings (name SYMBOL, driver SYMBOL, fleet SYMBOL, model SYMBOL, load_capacity DOUBLE, longitude DOUBLE, latitude DOUBLE, elevation DOUBLE, velocity DOUBLE, heading DOUBLE, grade DOUBLE, fuel_consumption DOUBLE, nominal_fuel_consumption DOUBLE, timestamp TIMESTAMP) timestamp(timestamp) PARTITION BY DAY")
+	//	if err != nil {
+	//		panic(fmt.Errorf("fatal error, failed to create readings table: %s", err))
+	//	}
+	//
+	//	// 创建 IoT diagnostics 表
+	//	_, err = execQuery(questdbRESTEndPoint, "CREATE TABLE IF NOT EXISTS diagnostics (name SYMBOL, status DOUBLE, current_load DOUBLE, fuel_state DOUBLE, nominal_fuel_consumption DOUBLE, timestamp TIMESTAMP) timestamp(timestamp) PARTITION BY DAY")
+	//	if err != nil {
+	//		panic(fmt.Errorf("fatal error, failed to create diagnostics table: %s", err))
+	//	}
+	//}
+
+	return tableExists
 }
 
 func (d *dbCreator) RemoveOldDB(dbName string) error {

@@ -80,16 +80,15 @@ cases are implemented for each database:
 | CrateDB         |    X    |     |
 | InfluxDB        |    X    |  X  |
 | MongoDB         |    X    |
-| QuestDB         |    X    | X²  
+| QuestDB         |    X    |  X  
 | SiriDB          |    X    |
 | TimescaleDB     |    X    |  X  |
 | Timestream      |    X    |     |
-| VictoriaMetrics |   X³    |     |
+| VictoriaMetrics |   X²    |     |
 | TDengine        |    X    |  X  |
 
-¹ Does not support the groupby-orderby-limit query 
-² Supports ingestion only 
-³ Does not support the groupby-orderby-limit, lastpoint, high-cpu-1, high-cpu-all queries
+¹ Does not support the groupby-orderby-limit query
+² Does not support the groupby-orderby-limit, lastpoint, high-cpu-1, high-cpu-all queries
 
 ## What the TSBS tests
 
