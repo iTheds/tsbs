@@ -25,6 +25,8 @@ const (
 	LongDrivingSessionDuration = 4 * time.Hour
 	// DailyDrivingDuration is time duration of one day of driving.
 	DailyDrivingDuration = 24 * time.Hour
+	// AvgLoadDuration is the time duration to evaluate average load per truck model per fleet.
+	AvgLoadDuration = 24 * time.Hour
 
 	// LabelLastLoc is the label for the last location query.
 	LabelLastLoc = "last-loc"

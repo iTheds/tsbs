@@ -319,16 +319,31 @@ func (i *IoT) AvgDailyDrivingSession(qi query.Query) {
 
 // AvgLoad finds the average load per truck model per fleet.
 func (i *IoT) AvgLoad(qi query.Query) {
-	sql := `WITH load_data AS (
+	interval := i.Interval.MustRandWindow(iot.AvgLoadDuration)
+	sql := fmt.Sprintf(`WITH load_data AS (
 		SELECT r.fleet, r.model, r.load_capacity, d.current_load
-		FROM readings r
-		ASOF JOIN diagnostics d
+		FROM (
+			SELECT fleet, model, load_capacity, name, timestamp
+			FROM %s
+			WHERE timestamp >= '%s' AND timestamp < '%s'
+		) r
+		ASOF JOIN (
+			SELECT name, current_load, timestamp
+			FROM %s
+			WHERE timestamp >= '%s' AND timestamp < '%s'
+		) d
 		ON r.name = d.name
 	)
 	SELECT fleet, model, load_capacity, avg(current_load / load_capacity) AS avg_load_percentage
 	FROM load_data
 	GROUP BY fleet, model, load_capacity;
-	`
+	`,
+		iotReadingsTable,
+		interval.Start().Format(questdbTimeFmt),
+		interval.End().Format(questdbTimeFmt),
+		iotDiagnosticsTable,
+		interval.Start().Format(questdbTimeFmt),
+		interval.End().Format(questdbTimeFmt))
 
 	humanLabel := "QuestDB average load per truck model per fleet"
 	humanDesc := humanLabel

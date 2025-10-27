@@ -3,15 +3,16 @@ set -euo pipefail
 
 # 通用参数
 QUERY_COUNT="${QUERY_COUNT:-1000}"
-WORKERS="${WORKERS:-8}"
+WORKERS="${WORKERS_NUM:-${WORKERS:-8}}"
 INFLUX_URLS="${INFLUX_URLS:-http://localhost:8086}"
 INFLUX_DB="${INFLUX_DB:-tsbs_devops}"
-QUESTDB_URLS="${QUESTDB_URLS:-http://localhost:9000}"
+QUESTDB_URLS="${QUESTDB_URLS:-http://192.168.3.248:9000/}"
 PRINT_INTERVAL="${PRINT_INTERVAL:-100}"
 DRY_RUN=0
 IGNORE_ERROR=0
 PARALLEL=1
 ONLY_GENERATE=0
+SKIP_GENERATE=0
 DBS_RAW="influx"
 TYPES_FILE_INFLUX=""
 TYPES_FILE_QUESTDB=""
@@ -20,7 +21,7 @@ TYPES_FILE_TDENGINE=""
 TS_DB_NAME="${TS_DB_NAME:-${PGDATABASE:-$INFLUX_DB}}"
 
 # TDengine 连接参数
-TDENGINE_HOST="${TDENGINE_HOST:-127.0.0.1}"
+TDENGINE_HOST="${TDENGINE_HOST:-192.168.3.248}"
 TDENGINE_PORT="${TDENGINE_PORT:-6030}"
 TDENGINE_USER="${TDENGINE_USER:-root}"
 TDENGINE_PASS="${TDENGINE_PASS:-taosdata}"
@@ -103,13 +104,15 @@ while [[ $# -gt 0 ]]; do
     --dry-run) DRY_RUN=1; shift ;;
     --ignore-error) IGNORE_ERROR=1; shift ;;
     --parallel) PARALLEL="${2:-1}"; shift 2 ;;
+    --workers) WORKERS="$2"; shift 2 ;;
     --no-run) ONLY_GENERATE=1; shift ;;
+    --no-gen) SKIP_GENERATE=1; shift ;;
     --dbs) DBS_RAW="$2"; shift 2 ;;
     --types-file-influx) TYPES_FILE_INFLUX="$2"; shift 2 ;;
     --types-file-questdb) TYPES_FILE_QUESTDB="$2"; shift 2 ;;
     --types-file-timescaledb) TYPES_FILE_TIMESCALE="$2"; shift 2 ;;
     --types-file-tdengine) TYPES_FILE_TDENGINE="$2"; shift 2 ;;
-    -h|--help) echo "Usage: ..."; exit 0 ;;
+    -h|--help) echo "Usage: $0 [--dbs influx,questdb,timescaledb,tdengine] [--workers 8] [--no-run] [--no-gen] ..."; exit 0 ;;
     *) echo "未知参数: $1"; exit 1 ;;
   esac
 done
@@ -332,11 +335,10 @@ run_timescaledb_all() {
     echo
   } >> "$result_file"
   for v in PGHOST PGPORT PGUSER PGPASSWORD; do [[ -n "${!v:-}" ]] || { echo "错误: 缺少 $v"; exit 1; }; done
-  local conn="host=$PGHOST port=$PGPORT user=$PGUSER password=$PGPASSWORD dbname=$TS_DB_NAME sslmode=disable"
   for qt in "${QT_TIMESCALE[@]}"; do
     local infile="$QUERY_DIR/queries_timescaledb_${qt}.gz"
     [[ -f "$infile" ]] || { echo "[ERROR][timescaledb] 缺少文件: $infile"; [[ $IGNORE_ERROR -eq 1 ]] && continue || exit 1; }
-    local cmd=("$RUN_BIN_TIMESCALE" --postgres="$conn" --workers="$WORKERS" --file="$infile")
+    local cmd=("$RUN_BIN_TIMESCALE" --hosts="$PGHOST" --port="$PGPORT" --user="$PGUSER" --pass="$PGPASSWORD" --db-name="$TS_DB_NAME" --workers="$WORKERS" --file="$infile")
     run_and_capture "QueryType=$qt" "$result_file" "timescaledb" "${cmd[@]}" || {
       if [[ $IGNORE_ERROR -eq 1 ]]; then echo "[WARN][timescaledb] 执行失败忽略: $qt"; else echo "[FATAL][timescaledb] 执行失败: $qt"; exit 1; fi
     }
@@ -394,8 +396,10 @@ for db in "${DBS_ARRAY[@]}"; do
   case "$db" in
     influx)
       [[ -x $RUN_BIN_INFLUX ]] || { [[ $ONLY_GENERATE -eq 1 ]] || { echo "缺少 $RUN_BIN_INFLUX"; exit 1; }; }
-      echo "[STAGE][influx] 生成开始"
-      parallel_generate influx generate_influx_one QT_INFLUX
+      if [[ $SKIP_GENERATE -eq 0 ]]; then
+        echo "[STAGE][influx] 生成开始"
+        parallel_generate influx generate_influx_one QT_INFLUX
+      fi
       if [[ $ONLY_GENERATE -eq 0 ]]; then
         echo "[STAGE][influx] 执行开始"
         run_influx_all
@@ -405,8 +409,10 @@ for db in "${DBS_ARRAY[@]}"; do
       ;;
     questdb)
       [[ -x $RUN_BIN_QUEST ]] || { [[ $ONLY_GENERATE -eq 1 ]] || { echo "缺少 $RUN_BIN_QUEST"; exit 1; }; }
-      echo "[STAGE][questdb] 生成开始"
-      parallel_generate questdb generate_questdb_one QT_QUESTDB
+      if [[ $SKIP_GENERATE -eq 0 ]]; then
+        echo "[STAGE][questdb] 生成开始"
+        parallel_generate questdb generate_questdb_one QT_QUESTDB
+      fi
       if [[ $ONLY_GENERATE -eq 0 ]]; then
         echo "[STAGE][questdb] 执行开始"
         run_questdb_all
@@ -416,8 +422,10 @@ for db in "${DBS_ARRAY[@]}"; do
       ;;
     timescaledb)
       [[ -x $RUN_BIN_TIMESCALE ]] || { [[ $ONLY_GENERATE -eq 1 ]] || { echo "缺少 $RUN_BIN_TIMESCALE"; exit 1; }; }
-      echo "[STAGE][timescaledb] 生成开始"
-      parallel_generate timescaledb generate_timescaledb_one QT_TIMESCALE
+      if [[ $SKIP_GENERATE -eq 0 ]]; then
+        echo "[STAGE][timescaledb] 生成开始"
+        parallel_generate timescaledb generate_timescaledb_one QT_TIMESCALE
+      fi
       if [[ $ONLY_GENERATE -eq 0 ]]; then
         echo "[STAGE][timescaledb] 执行开始"
         run_timescaledb_all
@@ -427,8 +435,10 @@ for db in "${DBS_ARRAY[@]}"; do
       ;;
     tdengine)
       [[ -x $RUN_BIN_TDENGINE ]] || { [[ $ONLY_GENERATE -eq 1 ]] || { echo "缺少 $RUN_BIN_TDENGINE"; exit 1; }; }
-      echo "[STAGE][tdengine] 生成开始"
-      parallel_generate tdengine generate_tdengine_one QT_TDENGINE
+      if [[ $SKIP_GENERATE -eq 0 ]]; then
+        echo "[STAGE][tdengine] 生成开始"
+        parallel_generate tdengine generate_tdengine_one QT_TDENGINE
+      fi
       if [[ $ONLY_GENERATE -eq 0 ]]; then
         echo "[STAGE][tdengine] 执行开始"
         run_tdengine_all
